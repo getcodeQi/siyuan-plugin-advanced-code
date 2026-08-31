@@ -1,0 +1,50 @@
+{
+  "name": "siyuan-plugin-advanced-code",
+  "author": "jqw",
+  "url": "https://github.com/getcodeQi/siyuan-plugin-advanced-code",
+  "version": "0.1.0",
+  "minAppVersion": "3.8.0",
+  "backends": [
+    "windows",
+    "linux",
+    "darwin",
+    "ios",
+    "android",
+    "harmony",
+    "docker",
+    "all"
+  ],
+  "frontends": [
+    "desktop",
+    "mobile",
+    "browser-desktop",
+    "browser-mobile",
+    "desktop-window",
+    "all"
+  ],
+  "disabledInPublish": false,
+  "displayName": {
+    "default": "Advanced Code",
+    "zh-CN": "Advanced Code 代码块"
+  },
+  "description": {
+    "default": "Multi-tab CodeMirror code blocks for SiYuan with native code block conversion.",
+    "zh-CN": "基于 CodeMirror 6 的多 Tab 代码块，可与思源原生代码块双向转换。"
+  },
+  "readme": {
+    "default": "README.md",
+    "zh-CN": "README_zh_CN.md"
+  },
+  "funding": {
+    "openCollective": "",
+    "patreon": "",
+    "github": "",
+    "custom": []
+  },
+  "keywords": [
+    "code",
+    "codemirror",
+    "代码块",
+    "multi-tab"
+  ]
+}
