@@ -2,24 +2,12 @@
   "name": "siyuan-plugin-advanced-code",
   "author": "jqw",
   "url": "https://github.com/getcodeQi/siyuan-plugin-advanced-code",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "3.8.0",
   "backends": [
-    "windows",
-    "linux",
-    "darwin",
-    "ios",
-    "android",
-    "harmony",
-    "docker",
     "all"
   ],
   "frontends": [
-    "desktop",
-    "mobile",
-    "browser-desktop",
-    "browser-mobile",
-    "desktop-window",
     "all"
   ],
   "disabledInPublish": false,
