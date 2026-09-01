@@ -53,6 +53,10 @@ type SqlBlockRow = {
   id: string;
 };
 
+type SqlRootRow = {
+  root_id: string;
+};
+
 const ICON = `<symbol id="iconAdvancedCode" viewBox="0 0 32 32">
   <path d="M8.6 11.2 3.8 16l4.8 4.8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M23.4 11.2 28.2 16l-4.8 4.8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -168,16 +172,16 @@ export default class AdvancedCodePlugin extends Plugin {
       callback: () => void this.convertCurrentSelectionToNativeCode(),
     });
     this.addCommand({
-      langKey: "Batch convert visible native code blocks to Advanced Code",
-      langText: "Batch convert visible native code blocks to Advanced Code",
+      langKey: "Batch convert current document native code blocks to Advanced Code",
+      langText: "Batch convert current document native code blocks to Advanced Code",
       hotkey: "",
-      callback: () => void this.batchConvertVisibleNativeCodeBlocks(),
+      callback: () => void this.batchConvertDocumentNativeCodeBlocks(),
     });
     this.addCommand({
-      langKey: "Batch convert visible Advanced Code blocks to native code",
-      langText: "Batch convert visible Advanced Code blocks to native code",
+      langKey: "Batch convert current document Advanced Code blocks to native code",
+      langText: "Batch convert current document Advanced Code blocks to native code",
       hotkey: "",
-      callback: () => void this.batchConvertVisibleAdvancedCodeBlocks(),
+      callback: () => void this.batchConvertDocumentAdvancedCodeBlocks(),
     });
   }
 
@@ -237,14 +241,14 @@ export default class AdvancedCodePlugin extends Plugin {
     detail.menu.addItem({
       id: "advanced-code-batch-native",
       icon: "iconAdvancedCode",
-      label: "批量转换可见原生代码块",
-      click: () => void this.batchConvertVisibleNativeCodeBlocks(),
+      label: "批量转换整个文档原生代码块",
+      click: () => void this.batchConvertDocumentNativeCodeBlocks(),
     });
     detail.menu.addItem({
       id: "advanced-code-batch-advanced",
       icon: "iconCode",
-      label: "批量转回可见 Advanced Code",
-      click: () => void this.batchConvertVisibleAdvancedCodeBlocks(),
+      label: "批量转回整个文档 Advanced Code",
+      click: () => void this.batchConvertDocumentAdvancedCodeBlocks(),
     });
   };
 
@@ -312,23 +316,35 @@ export default class AdvancedCodePlugin extends Plugin {
     await this.convertElementsToNativeCode(elements);
   }
 
-  private async batchConvertVisibleNativeCodeBlocks() {
-    const elements = this.getVisibleBlockElements((element) => this.isNativeCodeElement(element));
-    if (elements.length === 0) {
-      showMessage("No visible native code blocks found.");
+  private async batchConvertDocumentNativeCodeBlocks() {
+    const rootId = await this.getActiveDocumentId();
+    if (!rootId) {
+      showMessage("Cannot locate the current document.", 4000, "error");
       return;
     }
-    await this.convertElementsToAdvancedCode(elements);
+    const rows = await this.getDocumentNativeCodeBlocks(rootId);
+    if (rows.length === 0) {
+      showMessage("No native code blocks found in the current document.");
+      return;
+    }
+    confirm("Advanced Code", `Convert ${rows.length} native code block(s) in the current document to Advanced Code?`, () => {
+      void this.convertNativeCodeRowsToAdvancedCode(rows);
+    });
   }
 
-  private async batchConvertVisibleAdvancedCodeBlocks() {
-    const elements = this.getVisibleBlockElements((element) => this.isAdvancedCodeElement(element));
-    if (elements.length === 0) {
-      showMessage("No visible Advanced Code blocks found.");
+  private async batchConvertDocumentAdvancedCodeBlocks() {
+    const rootId = await this.getActiveDocumentId();
+    if (!rootId) {
+      showMessage("Cannot locate the current document.", 4000, "error");
       return;
     }
-    confirm("Advanced Code", `Convert ${elements.length} visible Advanced Code block(s) back to native code?`, () => {
-      void this.convertElementsToNativeCode(elements);
+    const rows = await this.getDocumentAdvancedCodeBlocks(rootId);
+    if (rows.length === 0) {
+      showMessage("No Advanced Code blocks found in the current document.");
+      return;
+    }
+    confirm("Advanced Code", `Convert ${rows.length} Advanced Code block(s) in the current document back to native code?`, () => {
+      void this.convertAdvancedCodeRowsToNativeCode(rows);
     });
   }
 
@@ -354,6 +370,28 @@ export default class AdvancedCodePlugin extends Plugin {
       converted += 1;
     }
     showMessage(`Converted ${converted} Advanced Code block(s) to native code.`);
+  }
+
+  private async convertNativeCodeRowsToAdvancedCode(rows: SqlBlockRow[]) {
+    let converted = 0;
+    for (const row of rows) {
+      if (!row.id) continue;
+      const native = await readNativeCodeBlock(row.id);
+      if (!native.isCodeBlock) continue;
+      await this.convertBlockToAdvancedCode(row.id, native.code, native.lang);
+      converted += 1;
+    }
+    showMessage(`Converted ${converted} native code block(s) in the current document to Advanced Code.`);
+  }
+
+  private async convertAdvancedCodeRowsToNativeCode(rows: SqlBlockRow[]) {
+    let converted = 0;
+    for (const row of rows) {
+      if (!row.id) continue;
+      await this.convertAdvancedCodeBlockToNative(row.id);
+      converted += 1;
+    }
+    showMessage(`Converted ${converted} Advanced Code block(s) in the current document to native code.`);
   }
 
   private async convertBlockToAdvancedCode(blockId: string, code: string, lang: string) {
@@ -393,6 +431,80 @@ export default class AdvancedCodePlugin extends Plugin {
     const candidate = this.getActiveProtyle();
     const instance = candidate?.getInstance?.() || candidate;
     return typeof instance?.updateTransaction === "function" ? instance : undefined;
+  }
+
+  private async getActiveDocumentId() {
+    const visibleBlockId = this.getVisibleEditorBlockId();
+    if (visibleBlockId) {
+      const rootId = await this.getRootIdForBlock(visibleBlockId);
+      if (rootId) return rootId;
+    }
+
+    const protyle = this.getActiveProtyle();
+    const rootId = protyle?.protyle?.block?.rootID;
+    if (rootId) return rootId;
+
+    const candidates = [
+      ...this.getActiveBlockElements(),
+      ...(this.getEditorRoot(protyle) ? Array.from(this.getEditorRoot(protyle)!.querySelectorAll<HTMLElement>("[data-node-id]")).slice(0, 1) : []),
+    ];
+    const blockId = candidates.find((element) => element.dataset.nodeId)?.dataset.nodeId;
+    if (!blockId) return undefined;
+
+    return this.getRootIdForBlock(blockId);
+  }
+
+  private getVisibleEditorBlockId() {
+    const focusedBlock = document.activeElement?.closest<HTMLElement>("[data-node-id]");
+    if (focusedBlock && this.isElementVisible(focusedBlock)) return focusedBlock.dataset.nodeId;
+
+    const selection = window.getSelection();
+    const anchorElement = selection?.anchorNode instanceof HTMLElement ? selection.anchorNode : selection?.anchorNode?.parentElement;
+    const selectionBlock = anchorElement?.closest<HTMLElement>("[data-node-id]");
+    if (selectionBlock && this.isElementVisible(selectionBlock)) return selectionBlock.dataset.nodeId;
+
+    const selectedBlock = Array.from(document.querySelectorAll<HTMLElement>(".protyle-wysiwyg--select[data-node-id]"))
+      .find((element) => this.isElementVisible(element));
+    if (selectedBlock?.dataset.nodeId) return selectedBlock.dataset.nodeId;
+
+    const visibleEditor = Array.from(document.querySelectorAll<HTMLElement>(".protyle-wysiwyg"))
+      .find((element) => this.isElementVisible(element));
+    return visibleEditor?.querySelector<HTMLElement>("[data-node-id]")?.dataset.nodeId;
+  }
+
+  private isElementVisible(element: HTMLElement) {
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0
+      && rect.height > 0
+      && rect.bottom >= 0
+      && rect.right >= 0
+      && rect.top <= window.innerHeight
+      && rect.left <= window.innerWidth
+      && getComputedStyle(element).visibility !== "hidden"
+      && getComputedStyle(element).display !== "none";
+  }
+
+  private async getRootIdForBlock(blockId: string) {
+    const rows = await querySql<SqlRootRow>(
+      `select root_id from blocks where id = '${this.escapeSql(blockId)}' limit 1`,
+    );
+    return rows[0]?.root_id || undefined;
+  }
+
+  private async getDocumentNativeCodeBlocks(rootId: string) {
+    return querySql<SqlBlockRow>(
+      `select id from blocks where root_id = '${this.escapeSql(rootId)}' and type = 'c' order by sort, id`,
+    );
+  }
+
+  private async getDocumentAdvancedCodeBlocks(rootId: string) {
+    return querySql<SqlBlockRow>(
+      `select id from blocks where root_id = '${this.escapeSql(rootId)}' and ial like '%${ATTR_MARKER}="true"%' order by sort, id`,
+    );
+  }
+
+  private escapeSql(value: string) {
+    return value.replaceAll("'", "''");
   }
 
   private async updateBlockForConversion(

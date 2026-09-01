@@ -9,7 +9,7 @@ Advanced Code adds a CodeMirror 6 powered, multi-tab code block to SiYuan. It ca
 - Convert Advanced Code blocks back to native code blocks. Multiple tabs are restored as adjacent native code blocks where the current SiYuan block tree allows insertion.
 - Add, remove, switch, rename, and drag-sort tabs.
 - Slash command, command palette commands, and block menu entries.
-- Current document batch conversion for visible native/Advanced Code blocks.
+- Current document batch conversion for all native/Advanced Code blocks, including blocks not currently rendered on screen.
 - Light/dark theme support, adaptive height, rounded border, and mobile layout.
 
 ## Known Limits

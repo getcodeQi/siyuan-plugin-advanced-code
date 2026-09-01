@@ -2,7 +2,7 @@
   "name": "siyuan-plugin-advanced-code",
   "author": "jqw",
   "url": "https://github.com/getcodeQi/siyuan-plugin-advanced-code",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minAppVersion": "3.8.0",
   "backends": [
     "all"
