@@ -53,14 +53,16 @@ export class AdvancedCodeEditor {
     this.render();
   }
 
-  destroy() {
+  destroy(restorePlaceholder = true) {
     this.destroyed = true;
     this.editorView?.destroy();
     const block = this.host.parentElement;
     if (block?.dataset.advancedCodeMounted === "true") {
       delete block.dataset.advancedCodeMounted;
-      block.removeAttribute("contenteditable");
-      block.replaceChildren(document.createTextNode("Advanced Code"));
+      if (restorePlaceholder) {
+        block.removeAttribute("contenteditable");
+        block.replaceChildren(document.createTextNode("Advanced Code"));
+      }
     }
     this.host.replaceChildren();
   }
@@ -100,9 +102,9 @@ export class AdvancedCodeEditor {
     labelInput.value = this.activeTab.label;
     labelInput.placeholder = "Tab name";
     labelInput.addEventListener("input", () => {
-      this.activeTab.label = labelInput.value || getLanguageLabel(this.activeTab.lang);
-      const tabsElement = shell.querySelector<HTMLElement>(".acode-tabs");
-      if (tabsElement) this.renderTabs(tabsElement);
+      const label = labelInput.value || getLanguageLabel(this.activeTab.lang);
+      this.activeTab.label = label;
+      this.updateActiveTabButton(shell, label);
       this.persistSoon();
     });
 
@@ -239,6 +241,13 @@ export class AdvancedCodeEditor {
     });
   }
 
+  private updateActiveTabButton(shell: HTMLElement, label: string) {
+    const button = shell.querySelector<HTMLButtonElement>(`.acode-tab[data-tab-id="${this.escapeSelectorValue(this.activeTabId)}"]`);
+    if (!button) return;
+    button.textContent = label;
+    button.title = `${label} (${normalizeLanguageId(this.activeTab.lang)})`;
+  }
+
   private iconButton(icon: string, title: string, onClick: () => void) {
     const button = document.createElement("button");
     button.type = "button";
@@ -285,6 +294,12 @@ export class AdvancedCodeEditor {
     this.tabs.splice(targetIndex, 0, source);
     this.persistSoon();
     if (render) this.render();
+  }
+
+  private escapeSelectorValue(value: string) {
+    return typeof CSS !== "undefined" && CSS.escape
+      ? CSS.escape(value)
+      : value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
   }
 
   private async persist() {

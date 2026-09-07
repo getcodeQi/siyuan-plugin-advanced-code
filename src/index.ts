@@ -67,6 +67,9 @@ export default class AdvancedCodePlugin extends Plugin {
   private readonly mountedEditors = new Map<string, AdvancedCodeEditor>();
   private readonly originalBlockHTML = new Map<string, string>();
   private observer?: MutationObserver;
+  private scanFrame = 0;
+  private lastAttrHydrateRootId = "";
+  private lastAttrHydrateAt = 0;
   private lastProtyle?: ProtyleLike;
   private lastBlockElements: HTMLElement[] = [];
   private isMobile = false;
@@ -85,6 +88,7 @@ export default class AdvancedCodePlugin extends Plugin {
     this.eventBus.off("click-blockicon", this.onBlockIcon);
     this.eventBus.off("click-editorcontent", this.onEditorContent);
     this.observer?.disconnect();
+    if (this.scanFrame) window.cancelAnimationFrame(this.scanFrame);
     this.mountedEditors.forEach((editor) => editor.destroy());
     this.mountedEditors.clear();
     this.originalBlockHTML.clear();
@@ -102,29 +106,76 @@ export default class AdvancedCodePlugin extends Plugin {
   }
 
   onLayoutReady() {
-    this.scanAdvancedCodeBlocks();
+    this.scheduleAdvancedCodeScan();
   }
 
   private startDomObserver() {
-    this.observer = new MutationObserver(() => this.scanAdvancedCodeBlocks());
+    this.observer = new MutationObserver((mutations) => {
+      if (mutations.every((mutation) => this.isEditorInternalMutation(mutation))) return;
+      this.scheduleAdvancedCodeScan();
+    });
     this.observer.observe(document.body, {
       childList: true,
       subtree: true,
       attributes: true,
       attributeFilter: [ATTR_MARKER],
     });
-    window.setTimeout(() => this.scanAdvancedCodeBlocks(), 300);
+    window.setTimeout(() => this.scheduleAdvancedCodeScan(), 300);
+  }
+
+  private scheduleAdvancedCodeScan() {
+    if (this.scanFrame) return;
+    this.scanFrame = window.requestAnimationFrame(() => {
+      this.scanFrame = 0;
+      this.scanAdvancedCodeBlocks();
+    });
   }
 
   private scanAdvancedCodeBlocks() {
-    document.querySelectorAll<HTMLElement>(`[data-node-id][${ATTR_MARKER}="true"]`).forEach((element) => {
+    this.cleanupUnmountedEditors();
+    const markedElements = document.querySelectorAll<HTMLElement>(`[data-node-id][${ATTR_MARKER}="true"]`);
+    markedElements.forEach((element) => {
       void this.mountAdvancedCodeElement(element);
     });
+    if (markedElements.length === 0) void this.mountCurrentDocumentAdvancedCodeBlocks();
+  }
+
+  private cleanupUnmountedEditors() {
+    for (const [blockId, editor] of this.mountedEditors) {
+      const element = this.getBlockElement(blockId);
+      if (element?.isConnected) continue;
+      editor.destroy(false);
+      this.mountedEditors.delete(blockId);
+      this.originalBlockHTML.delete(blockId);
+    }
+  }
+
+  private async mountCurrentDocumentAdvancedCodeBlocks() {
+    const rootId = await this.getActiveDocumentId();
+    const root = this.getEditorRoot(this.getActiveProtyle());
+    if (!rootId || !root) return;
+
+    const now = performance.now();
+    if (this.lastAttrHydrateRootId === rootId && now - this.lastAttrHydrateAt < 1000) return;
+    this.lastAttrHydrateRootId = rootId;
+    this.lastAttrHydrateAt = now;
+
+    const ids = new Set((await this.getDocumentAdvancedCodeBlocks(rootId)).map((row) => row.id));
+    if (ids.size === 0) return;
+    root.querySelectorAll<HTMLElement>("[data-node-id]").forEach((element) => {
+      const blockId = element.dataset.nodeId || "";
+      if (ids.has(blockId)) void this.mountAdvancedCodeElement(element);
+    });
+  }
+
+  private isEditorInternalMutation(mutation: MutationRecord) {
+    const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+    return Boolean(target?.closest(".acode-render-host"));
   }
 
   private async mountAdvancedCodeElement(element: HTMLElement) {
     const blockId = element.dataset.nodeId || "";
-    if (!blockId || element.dataset.advancedCodeMounted === "true") return;
+    if (!blockId || (element.dataset.advancedCodeMounted === "true" && this.mountedEditors.has(blockId))) return;
     element.dataset.advancedCodeMounted = "true";
 
     const mount = document.createElement("div");
@@ -141,7 +192,7 @@ export default class AdvancedCodePlugin extends Plugin {
 
     try {
       const attrs = await getBlockAttrs(blockId);
-      if (!element.isConnected || element.getAttribute(ATTR_MARKER) !== "true" || element.dataset.advancedCodeMounted !== "true") {
+      if (!element.isConnected || attrs[ATTR_MARKER] !== "true" || element.dataset.advancedCodeMounted !== "true") {
         return;
       }
       this.mountedEditors.get(blockId)?.destroy();
@@ -419,12 +470,19 @@ export default class AdvancedCodePlugin extends Plugin {
       const result = await insertBlockMarkdown(makeNativeCodeMarkdown(tab), previousId);
       previousId = result[0]?.doOperations?.[0]?.id || previousId;
     }
+    this.mountedEditors.get(blockId)?.destroy(false);
+    this.mountedEditors.delete(blockId);
     this.originalBlockHTML.delete(blockId);
   }
 
   private getBlockElement(blockId: string) {
-    return Array.from(document.querySelectorAll<HTMLElement>("[data-node-id]"))
-      .find((element) => element.dataset.nodeId === blockId);
+    return document.querySelector<HTMLElement>(`[data-node-id="${this.escapeSelectorValue(blockId)}"]`);
+  }
+
+  private escapeSelectorValue(value: string) {
+    return typeof CSS !== "undefined" && CSS.escape
+      ? CSS.escape(value)
+      : value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
   }
 
   private getTransactionProtyle() {
