@@ -14,13 +14,14 @@ import { sql } from "@codemirror/lang-sql";
 import { xml } from "@codemirror/lang-xml";
 import {
   codeFolding,
-  defaultHighlightStyle,
   foldGutter,
   foldKeymap,
+  HighlightStyle,
   syntaxHighlighting,
 } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
+import { tags } from "@lezer/highlight";
 
 export const DEFAULT_LANG = "javascript";
 
@@ -151,13 +152,54 @@ export function getLanguageExtension(lang: string): Extension {
   }
 }
 
+const advancedCodeHighlightStyle = HighlightStyle.define([
+  { tag: tags.meta, color: "var(--acode-cm-meta)" },
+  { tag: tags.link, color: "var(--acode-cm-link)", textDecoration: "underline" },
+  { tag: tags.heading, color: "var(--acode-cm-heading)", fontWeight: "700" },
+  { tag: tags.emphasis, fontStyle: "italic" },
+  { tag: tags.strong, fontWeight: "700" },
+  { tag: tags.strikethrough, textDecoration: "line-through" },
+  {
+    tag: [
+      tags.keyword,
+      tags.controlKeyword,
+      tags.definitionKeyword,
+      tags.moduleKeyword,
+      tags.operatorKeyword,
+    ],
+    color: "var(--acode-cm-keyword)",
+    fontWeight: "650",
+  },
+  {
+    tag: [tags.atom, tags.bool, tags.null, tags.labelName, tags.contentSeparator],
+    color: "var(--acode-cm-constant)",
+  },
+  { tag: [tags.number, tags.integer, tags.float, tags.literal, tags.inserted], color: "var(--acode-cm-number)" },
+  { tag: [tags.string, tags.deleted], color: "var(--acode-cm-string)" },
+  { tag: [tags.regexp, tags.escape, tags.special(tags.string)], color: "var(--acode-cm-special)" },
+  {
+    tag: [
+      tags.definition(tags.variableName),
+      tags.function(tags.variableName),
+      tags.function(tags.propertyName),
+    ],
+    color: "var(--acode-cm-function)",
+  },
+  { tag: [tags.variableName, tags.local(tags.variableName), tags.special(tags.variableName)], color: "var(--acode-cm-variable)" },
+  { tag: [tags.typeName, tags.namespace, tags.className], color: "var(--acode-cm-type)" },
+  { tag: [tags.propertyName, tags.attributeName, tags.definition(tags.propertyName)], color: "var(--acode-cm-property)" },
+  { tag: [tags.operator, tags.punctuation], color: "var(--acode-cm-operator)" },
+  { tag: tags.comment, color: "var(--acode-cm-comment)", fontStyle: "italic" },
+  { tag: tags.invalid, color: "var(--acode-cm-invalid)", textDecoration: "underline wavy var(--acode-cm-invalid)" },
+]);
+
 export function getCodeMirrorBaseExtensions(onChange: (code: string) => void, lang: string): Extension[] {
   return [
     lineNumbers(),
     history(),
     foldGutter(),
     codeFolding(),
-    syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+    syntaxHighlighting(advancedCodeHighlightStyle),
     getLanguageExtension(lang),
     EditorView.lineWrapping,
     EditorView.updateListener.of((update) => {

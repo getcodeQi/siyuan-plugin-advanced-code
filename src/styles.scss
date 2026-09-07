@@ -7,6 +7,21 @@
 .acode-shell {
   --acode-accent: var(--b3-theme-primary, #357f7b);
   --acode-border: color-mix(in srgb, var(--acode-accent), var(--b3-theme-surface) 58%);
+  --acode-cm-meta: #57606a;
+  --acode-cm-link: #0969da;
+  --acode-cm-heading: #24292f;
+  --acode-cm-keyword: #0969da;
+  --acode-cm-constant: #8250df;
+  --acode-cm-number: #116329;
+  --acode-cm-string: #0a7f53;
+  --acode-cm-special: #bc4c00;
+  --acode-cm-function: #953800;
+  --acode-cm-variable: #24292f;
+  --acode-cm-type: #0550ae;
+  --acode-cm-property: #6f42c1;
+  --acode-cm-operator: #57606a;
+  --acode-cm-comment: #6e7781;
+  --acode-cm-invalid: #cf222e;
   box-sizing: border-box;
   overflow: hidden;
   width: 100%;
@@ -14,6 +29,32 @@
   border-radius: 10px;
   background: var(--b3-theme-background);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 12px 24px rgba(0, 0, 0, 0.06);
+}
+
+:root[data-theme-mode="dark"] .acode-shell,
+:root[data-theme-mode="black"] .acode-shell,
+body[data-theme-mode="dark"] .acode-shell,
+body[data-theme-mode="black"] .acode-shell,
+[data-theme-mode="dark"] .acode-shell,
+[data-theme-mode="black"] .acode-shell,
+[data-theme="dark"] .acode-shell,
+.b3-theme-dark .acode-shell,
+.theme-dark .acode-shell {
+  --acode-cm-meta: #9aa7b2;
+  --acode-cm-link: #8bd5ff;
+  --acode-cm-heading: #e6edf3;
+  --acode-cm-keyword: #8bd5ff;
+  --acode-cm-constant: #f0b6ff;
+  --acode-cm-number: #8ee99a;
+  --acode-cm-string: #a8e6b1;
+  --acode-cm-special: #ffbd7a;
+  --acode-cm-function: #ffd479;
+  --acode-cm-variable: #d6dee6;
+  --acode-cm-type: #7ee7d8;
+  --acode-cm-property: #d2c2ff;
+  --acode-cm-operator: #b8c3cc;
+  --acode-cm-comment: #9aa7b2;
+  --acode-cm-invalid: #ff8f8f;
 }
 
 .acode-header {
@@ -25,6 +66,10 @@
   border-bottom: 1px solid var(--b3-border-color);
   background: var(--b3-theme-surface);
   box-sizing: border-box;
+}
+
+.acode-shell-collapsed .acode-header {
+  border-bottom: 0;
 }
 
 .acode-title-area {
@@ -138,6 +183,10 @@
   height: 15px;
 }
 
+.acode-collapse-button {
+  color: var(--b3-theme-on-background);
+}
+
 .acode-tabs {
   display: flex;
   align-items: center;
@@ -244,7 +293,7 @@
   }
 
   .acode-title-area {
-    flex: 1 1 calc(100% - 34px);
+    flex: 1 1 calc(100% - 76px);
     min-width: 0;
   }
 

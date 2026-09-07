@@ -4,6 +4,7 @@ import { showMessage } from "siyuan";
 import { DEFAULT_LANG, getCodeMirrorBaseExtensions, getLanguageLabel, getLanguageSelectOptions, normalizeLanguageId } from "./languages";
 import {
   ATTR_ACTIVE_TAB,
+  ATTR_COLLAPSED,
   ATTR_TABS,
   attrsFromTabs,
   decodeTabs,
@@ -35,6 +36,7 @@ export class AdvancedCodeEditor {
   private readonly onNativeConversion?: (blockId: string, tabs: CodeTab[]) => Promise<void>;
   private tabs: CodeTab[];
   private activeTabId: string;
+  private collapsed: boolean;
   private editorView?: EditorView;
   private readonly persistSoon: () => void;
   private destroyed = false;
@@ -45,6 +47,7 @@ export class AdvancedCodeEditor {
     this.onNativeConversion = options.onNativeConversion;
     this.tabs = decodeTabs(options.attrs[ATTR_TABS]);
     this.activeTabId = options.attrs[ATTR_ACTIVE_TAB] || this.tabs[0].id;
+    this.collapsed = options.attrs[ATTR_COLLAPSED] === "true";
     if (!this.tabs.some((tab) => tab.id === this.activeTabId)) this.activeTabId = this.tabs[0].id;
     this.persistSoon = debounce(() => void this.persist(), 350);
     this.render();
@@ -72,13 +75,21 @@ export class AdvancedCodeEditor {
     this.host.replaceChildren();
 
     const shell = document.createElement("div");
-    shell.className = "acode-shell";
+    shell.className = `acode-shell${this.collapsed ? " acode-shell-collapsed" : ""}`;
     ["beforeinput", "input", "paste", "keydown", "keyup", "compositionstart", "compositionupdate", "compositionend", "pointerdown"].forEach((eventName) => {
       shell.addEventListener(eventName, (event) => event.stopPropagation());
     });
 
     const header = document.createElement("div");
     header.className = "acode-header";
+
+    const collapseButton = this.iconButton(
+      this.collapsed ? "iconRight" : "iconDown",
+      this.collapsed ? "Expand code" : "Collapse code",
+      () => this.toggleCollapsed(),
+    );
+    collapseButton.classList.add("acode-collapse-button");
+    collapseButton.setAttribute("aria-expanded", String(!this.collapsed));
 
     const titleIcon = document.createElement("span");
     titleIcon.className = "acode-title-icon";
@@ -90,7 +101,8 @@ export class AdvancedCodeEditor {
     labelInput.placeholder = "Tab name";
     labelInput.addEventListener("input", () => {
       this.activeTab.label = labelInput.value || getLanguageLabel(this.activeTab.lang);
-      this.renderTabs(shell.querySelector(".acode-tabs") as HTMLElement);
+      const tabsElement = shell.querySelector<HTMLElement>(".acode-tabs");
+      if (tabsElement) this.renderTabs(tabsElement);
       this.persistSoon();
     });
 
@@ -129,7 +141,11 @@ export class AdvancedCodeEditor {
       this.iconButton("iconCode", "Convert to native code block", () => void this.convertToNative()),
     );
 
-    header.append(titleArea, meta, langSelect, actions);
+    if (this.collapsed) {
+      header.append(collapseButton, titleArea);
+    } else {
+      header.append(collapseButton, titleArea, meta, langSelect, actions);
+    }
 
     const tabsElement = document.createElement("div");
     tabsElement.className = "acode-tabs";
@@ -138,8 +154,13 @@ export class AdvancedCodeEditor {
     const editorHost = document.createElement("div");
     editorHost.className = "acode-editor-host";
 
-    shell.append(header, tabsElement, editorHost);
+    shell.append(header);
+    if (!this.collapsed) {
+      shell.append(tabsElement, editorHost);
+    }
     this.host.append(shell);
+
+    if (this.collapsed) return;
 
     this.editorView = new EditorView({
       parent: editorHost,
@@ -229,6 +250,12 @@ export class AdvancedCodeEditor {
     return button;
   }
 
+  private toggleCollapsed() {
+    this.collapsed = !this.collapsed;
+    this.persistSoon();
+    this.render();
+  }
+
   private addTab() {
     const tab = makeTab("", this.activeTab.lang, this.tabs.length + 1);
     this.tabs.push(tab);
@@ -263,7 +290,7 @@ export class AdvancedCodeEditor {
   private async persist() {
     if (this.destroyed) return;
     try {
-      await setBlockAttrs(this.blockId, attrsFromTabs(this.tabs, this.activeTabId));
+      await setBlockAttrs(this.blockId, attrsFromTabs(this.tabs, this.activeTabId, this.collapsed));
     } catch (err) {
       console.error("Persist Advanced Code failed:", err);
       showMessage(`Advanced Code save failed: ${String((err as Error).message || err)}`);

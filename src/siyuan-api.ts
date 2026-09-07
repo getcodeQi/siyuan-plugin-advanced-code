@@ -5,6 +5,7 @@ import type { BlockAttrs, CodeTab, KernelResponse, NativeCodeBlock, TransactionR
 export const ATTR_MARKER = "custom-advanced-code";
 export const ATTR_TABS = "custom-advanced-code-tabs";
 export const ATTR_ACTIVE_TAB = "custom-advanced-code-active-tab";
+export const ATTR_COLLAPSED = "custom-advanced-code-collapsed";
 export const ATTR_VERSION = "custom-advanced-code-version";
 export const STORAGE_INDEX = "advanced-code-block-index.json";
 
@@ -64,7 +65,7 @@ export function decodeTabs(raw: string | undefined): CodeTab[] {
   }
 }
 
-export function attrsFromTabs(tabs: CodeTab[], activeTabId?: string): BlockAttrs {
+export function attrsFromTabs(tabs: CodeTab[], activeTabId?: string, collapsed = false): BlockAttrs {
   const normalizedTabs = normalizeTabs(tabs);
   const active = activeTabId && normalizedTabs.some((tab) => tab.id === activeTabId)
     ? activeTabId
@@ -74,6 +75,7 @@ export function attrsFromTabs(tabs: CodeTab[], activeTabId?: string): BlockAttrs
     [ATTR_MARKER]: "true",
     [ATTR_TABS]: encodeTabs(normalizedTabs),
     [ATTR_ACTIVE_TAB]: active,
+    [ATTR_COLLAPSED]: collapsed ? "true" : "false",
     [ATTR_VERSION]: "1",
   };
 }
