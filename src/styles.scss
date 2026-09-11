@@ -187,15 +187,24 @@ body[data-theme-mode="black"] .acode-shell,
   color: var(--b3-theme-on-background);
 }
 
-.acode-tabs {
+.acode-tabs-row {
   display: flex;
   align-items: center;
   gap: 5px;
   min-height: 36px;
   padding: 5px 10px;
-  overflow-x: auto;
   border-bottom: 1px solid var(--b3-border-color);
   background: color-mix(in srgb, var(--b3-theme-surface), var(--b3-theme-background) 28%);
+  box-sizing: border-box;
+}
+
+.acode-tabs {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 5px;
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .acode-tab {
@@ -232,6 +241,26 @@ body[data-theme-mode="black"] .acode-shell,
   color: var(--b3-theme-on-background);
   box-shadow: inset 0 -2px 0 var(--acode-accent);
   font-weight: 650;
+}
+
+.acode-tab-title-input {
+  flex: 0 1 180px;
+  min-width: 110px;
+  height: 28px;
+  border: 1px solid var(--b3-border-color);
+  border-radius: 6px;
+  outline: 0;
+  background: var(--b3-theme-background);
+  color: var(--b3-theme-on-background);
+  font-size: 12px;
+  line-height: 1.25;
+  letter-spacing: 0;
+  padding: 3px 8px;
+  box-sizing: border-box;
+}
+
+.acode-tab-title-input:focus {
+  border-color: var(--acode-accent);
 }
 
 .acode-editor-host {
@@ -325,15 +354,26 @@ body[data-theme-mode="black"] .acode-shell,
     height: 32px;
   }
 
-  .acode-tabs {
+  .acode-tabs-row {
+    align-items: stretch;
+    flex-wrap: wrap;
     min-height: 40px;
     padding: 5px 6px;
+  }
+
+  .acode-tabs {
+    flex: 1 1 100%;
     -webkit-overflow-scrolling: touch;
   }
 
   .acode-tab {
     min-height: 32px;
     padding: 5px 10px;
+  }
+
+  .acode-tab-title-input {
+    flex: 1 1 100%;
+    height: 32px;
   }
 
   .acode-editor-host,

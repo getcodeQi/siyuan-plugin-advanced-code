@@ -3,6 +3,7 @@ import { DEFAULT_LANG, getLanguageLabel, normalizeLanguageId } from "./languages
 import type { BlockAttrs, CodeTab, KernelResponse, NativeCodeBlock, TransactionResult } from "./types";
 
 export const ATTR_MARKER = "custom-advanced-code";
+export const ATTR_TITLE = "custom-advanced-code-title";
 export const ATTR_TABS = "custom-advanced-code-tabs";
 export const ATTR_ACTIVE_TAB = "custom-advanced-code-active-tab";
 export const ATTR_COLLAPSED = "custom-advanced-code-collapsed";
@@ -65,7 +66,16 @@ export function decodeTabs(raw: string | undefined): CodeTab[] {
   }
 }
 
-export function attrsFromTabs(tabs: CodeTab[], activeTabId?: string, collapsed = false): BlockAttrs {
+export function getDefaultBlockTitle(tabs: CodeTab[]) {
+  const firstTab = normalizeTabs(tabs)[0];
+  return firstTab.label || getLanguageLabel(firstTab.lang);
+}
+
+export function decodeBlockTitle(attrs: BlockAttrs, tabs: CodeTab[]) {
+  return String(attrs[ATTR_TITLE] || "").trim() || getDefaultBlockTitle(tabs);
+}
+
+export function attrsFromTabs(tabs: CodeTab[], activeTabId?: string, collapsed = false, title?: string): BlockAttrs {
   const normalizedTabs = normalizeTabs(tabs);
   const active = activeTabId && normalizedTabs.some((tab) => tab.id === activeTabId)
     ? activeTabId
@@ -73,6 +83,7 @@ export function attrsFromTabs(tabs: CodeTab[], activeTabId?: string, collapsed =
 
   return {
     [ATTR_MARKER]: "true",
+    [ATTR_TITLE]: String(title || "").trim() || getDefaultBlockTitle(normalizedTabs),
     [ATTR_TABS]: encodeTabs(normalizedTabs),
     [ATTR_ACTIVE_TAB]: active,
     [ATTR_COLLAPSED]: collapsed ? "true" : "false",
@@ -85,7 +96,7 @@ function escapeIal(value: string) {
 }
 
 export function makeAdvancedCodeMarkdown(blockId: string, tabs: CodeTab[], activeTabId?: string) {
-  const attrs = attrsFromTabs(tabs, activeTabId);
+  const attrs = attrsFromTabs(tabs, activeTabId, false, getDefaultBlockTitle(tabs));
   const ial = Object.entries({ id: blockId, ...attrs })
     .map(([key, value]) => `${key}="${escapeIal(value)}"`)
     .join(" ");

@@ -7,6 +7,7 @@ import {
   ATTR_COLLAPSED,
   ATTR_TABS,
   attrsFromTabs,
+  decodeBlockTitle,
   decodeTabs,
   insertBlockMarkdown,
   makeNativeCodeMarkdown,
@@ -36,6 +37,7 @@ export class AdvancedCodeEditor {
   private readonly onNativeConversion?: (blockId: string, tabs: CodeTab[]) => Promise<void>;
   private tabs: CodeTab[];
   private activeTabId: string;
+  private blockTitle: string;
   private collapsed: boolean;
   private editorView?: EditorView;
   private readonly persistSoon: () => void;
@@ -47,6 +49,7 @@ export class AdvancedCodeEditor {
     this.onNativeConversion = options.onNativeConversion;
     this.tabs = decodeTabs(options.attrs[ATTR_TABS]);
     this.activeTabId = options.attrs[ATTR_ACTIVE_TAB] || this.tabs[0].id;
+    this.blockTitle = decodeBlockTitle(options.attrs, this.tabs);
     this.collapsed = options.attrs[ATTR_COLLAPSED] === "true";
     if (!this.tabs.some((tab) => tab.id === this.activeTabId)) this.activeTabId = this.tabs[0].id;
     this.persistSoon = debounce(() => void this.persist(), 350);
@@ -97,20 +100,18 @@ export class AdvancedCodeEditor {
     titleIcon.className = "acode-title-icon";
     titleIcon.innerHTML = `<svg><use xlink:href="#iconCode"></use></svg>`;
 
-    const labelInput = document.createElement("input");
-    labelInput.className = "acode-title-input";
-    labelInput.value = this.activeTab.label;
-    labelInput.placeholder = "Tab name";
-    labelInput.addEventListener("input", () => {
-      const label = labelInput.value || getLanguageLabel(this.activeTab.lang);
-      this.activeTab.label = label;
-      this.updateActiveTabButton(shell, label);
+    const blockTitleInput = document.createElement("input");
+    blockTitleInput.className = "acode-title-input";
+    blockTitleInput.value = this.blockTitle;
+    blockTitleInput.placeholder = "Code block title";
+    blockTitleInput.addEventListener("input", () => {
+      this.blockTitle = blockTitleInput.value || getLanguageLabel(this.activeTab.lang);
       this.persistSoon();
     });
 
     const titleArea = document.createElement("label");
     titleArea.className = "acode-title-area";
-    titleArea.append(titleIcon, labelInput);
+    titleArea.append(titleIcon, blockTitleInput);
 
     const meta = document.createElement("span");
     meta.className = "acode-meta";
@@ -128,7 +129,7 @@ export class AdvancedCodeEditor {
     langSelect.addEventListener("change", () => {
       const previousLang = this.activeTab.lang;
       this.activeTab.lang = normalizeLanguageId(langSelect.value || DEFAULT_LANG);
-      if (!labelInput.value || labelInput.value === getLanguageLabel(previousLang)) {
+      if (!this.activeTab.label || this.activeTab.label === getLanguageLabel(previousLang)) {
         this.activeTab.label = getLanguageLabel(this.activeTab.lang);
       }
       this.persistSoon();
@@ -153,12 +154,27 @@ export class AdvancedCodeEditor {
     tabsElement.className = "acode-tabs";
     this.renderTabs(tabsElement);
 
+    const tabTitleInput = document.createElement("input");
+    tabTitleInput.className = "acode-tab-title-input";
+    tabTitleInput.value = this.activeTab.label;
+    tabTitleInput.placeholder = "Tab title";
+    tabTitleInput.addEventListener("input", () => {
+      const label = tabTitleInput.value || getLanguageLabel(this.activeTab.lang);
+      this.activeTab.label = label;
+      this.updateActiveTabButton(shell, label);
+      this.persistSoon();
+    });
+
+    const tabsRow = document.createElement("div");
+    tabsRow.className = "acode-tabs-row";
+    tabsRow.append(tabsElement, tabTitleInput);
+
     const editorHost = document.createElement("div");
     editorHost.className = "acode-editor-host";
 
     shell.append(header);
     if (!this.collapsed) {
-      shell.append(tabsElement, editorHost);
+      shell.append(tabsRow, editorHost);
     }
     this.host.append(shell);
 
@@ -305,7 +321,7 @@ export class AdvancedCodeEditor {
   private async persist() {
     if (this.destroyed) return;
     try {
-      await setBlockAttrs(this.blockId, attrsFromTabs(this.tabs, this.activeTabId, this.collapsed));
+      await setBlockAttrs(this.blockId, attrsFromTabs(this.tabs, this.activeTabId, this.collapsed, this.blockTitle));
     } catch (err) {
       console.error("Persist Advanced Code failed:", err);
       showMessage(`Advanced Code save failed: ${String((err as Error).message || err)}`);
